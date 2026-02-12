@@ -1,0 +1,62 @@
+import { Globe } from "lucide-react"
+
+const languages = [
+  { name: "Hindi", script: "हिन्दी", supported: true },
+  { name: "Tamil", script: "தமிழ்", supported: true },
+  { name: "Telugu", script: "తెలుగు", supported: true },
+  { name: "Bengali", script: "বাংলা", supported: false },
+  { name: "Marathi", script: "मराठी", supported: false },
+  { name: "Kannada", script: "ಕನ್ನಡ", supported: false },
+]
+
+export function MultilingualSection() {
+  return (
+    <section id="languages" className="bg-muted py-20 lg:py-28">
+      <div className="mx-auto max-w-7xl px-4 lg:px-8">
+        <div className="mx-auto mb-14 max-w-2xl text-center">
+          <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-primary">
+            Multilingual Support
+          </p>
+          <h2 className="mb-4 text-balance text-3xl font-bold text-foreground md:text-4xl">
+            Built for India&apos;s Linguistic Diversity
+          </h2>
+          <p className="text-pretty text-lg text-muted-foreground">
+            Our AI understands the nuance, slang, and context of India&apos;s most spoken languages.
+          </p>
+        </div>
+
+        <div className="mx-auto grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-3">
+          {languages.map((lang) => (
+            <div
+              key={lang.name}
+              className={`group flex flex-col items-center rounded-2xl border p-6 text-center transition-shadow duration-300 hover:shadow-lg ${
+                lang.supported
+                  ? "border-border bg-card shadow-sm"
+                  : "border-dashed border-border bg-muted"
+              }`}
+            >
+              <div
+                className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl ${
+                  lang.supported ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                <Globe className="h-6 w-6" />
+              </div>
+              <p className="mb-1 text-2xl font-bold text-foreground">{lang.script}</p>
+              <p className="text-sm font-medium text-muted-foreground">{lang.name}</p>
+              {lang.supported ? (
+                <span className="mt-2 rounded-full bg-accent/10 px-3 py-0.5 text-xs font-medium text-accent">
+                  Supported
+                </span>
+              ) : (
+                <span className="mt-2 rounded-full bg-muted-foreground/10 px-3 py-0.5 text-xs font-medium text-muted-foreground">
+                  Coming Soon
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
