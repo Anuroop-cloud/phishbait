@@ -15,10 +15,18 @@ Runs on CPU only. No fine-tuning.
 """
 
 import os
+import sys
 import time
 
 import numpy as np
 import pandas as pd
+
+# Resolve project root dynamically
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+DATASET_DIR = os.path.join(BASE_DIR, "dataset")
+
+# Ensure local imports work regardless of cwd
+sys.path.insert(0, os.path.dirname(__file__))
 
 from indicbert_encoder import IndicBERTEncoder
 
@@ -27,8 +35,8 @@ def main() -> None:
     """Generate and persist IndicBERT embeddings for train and test splits."""
     start_time = time.time()
 
-    train_path = "dataset/train_processed.csv"
-    test_path = "dataset/test_processed.csv"
+    train_path = os.path.join(DATASET_DIR, "train_processed.csv")
+    test_path = os.path.join(DATASET_DIR, "test_processed.csv")
 
     # 1) Load processed train/test CSV files
     if not os.path.exists(train_path):
@@ -62,8 +70,8 @@ def main() -> None:
     test_embeddings = encoder.encode_batch(test_texts, batch_size=16)
 
     # 4) Save embeddings
-    train_out = "dataset/train_embeddings.npy"
-    test_out = "dataset/test_embeddings.npy"
+    train_out = os.path.join(DATASET_DIR, "train_embeddings.npy")
+    test_out = os.path.join(DATASET_DIR, "test_embeddings.npy")
 
     np.save(train_out, train_embeddings)
     np.save(test_out, test_embeddings)

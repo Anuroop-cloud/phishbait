@@ -1,68 +1,37 @@
 import os
-from typing import List
 
+# Resolve project root dynamically
+BASE_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..")
+)
+
+DATASET_DIR = os.path.join(BASE_DIR, "dataset")
+MODEL_DIR = os.path.join(BASE_DIR, "models")
+
+print("BASE_DIR:", BASE_DIR)
+print("DATASET_DIR:", DATASET_DIR)
+print("MODEL_DIR:", MODEL_DIR)
+
+import json
+
+import joblib
 import numpy as np
 import pandas as pd
-
-try:
-    from backend.ml.indicBERT import IndicBERTEncoder
-except Exception:
-    # Fallback minimal IndicBERTEncoder using transformers if original isn't available
-    try:
-        from transformers import AutoTokenizer, AutoModel
-        import torch
-
-        class IndicBERTEncoder:
-            def __init__(self, model_name: str = "ai4bharat/indic-bert", device: str = None):
-                self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-                self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-                self.model = AutoModel.from_pretrained(model_name).to(self.device)
-
-            def _mean_pool(self, model_output, attention_mask):
-                token_embeddings = model_output[0]  # (batch_size, seq_len, hidden)
-                input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-                sum_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1)
-                sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
-                return sum_embeddings / sum_mask
-
-            def encode_batch(self, texts: List[str], batch_size: int = 32) -> np.ndarray:
-                all_emb = []
-                self.model.eval()
-                with torch.no_grad():
-                    for i in range(0, len(texts), batch_size):
-                        batch = texts[i : i + batch_size]
-                        enc = self.tokenizer(batch, padding=True, truncation=True, return_tensors="pt")
-                        input_ids = enc["input_ids"].to(self.device)
-                        attention_mask = enc["attention_mask"].to(self.device)
-                        out = self.model(input_ids=input_ids, attention_mask=attention_mask)
-                        emb = self._mean_pool(out, attention_mask)
-                        emb = emb.cpu().numpy()
-                        all_emb.append(emb)
-                return np.vstack(all_emb)
-
-    except Exception:
-        # Final fallback: random vectors (very small chance, only for quick smoke tests)
-        class IndicBERTEncoder:
-            def __init__(self, *_args, **_kwargs):
-                self.dim = 128
-
-            def encode_batch(self, texts: List[str], batch_size: int = 32) -> np.ndarray:
-                return np.random.randn(len(texts), self.dim)
-
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-import joblib
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
 
 def main():
     # Paths
-    train_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "dataset", "train_processed.csv")
-    test_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "dataset", "test_processed.csv")
-
-    train_path = os.path.abspath(train_path)
-    test_path = os.path.abspath(test_path)
+    train_path = os.path.join(DATASET_DIR, "train_processed.csv")
+    test_path = os.path.join(DATASET_DIR, "test_processed.csv")
 
     # Load data
+    if not os.path.exists(train_path):
+        raise FileNotFoundError(f"Missing file: {train_path}")
+    if not os.path.exists(test_path):
+        raise FileNotFoundError(f"Missing file: {test_path}")
+
     train_df = pd.read_csv(train_path)
     test_df = pd.read_csv(test_path)
 
@@ -70,16 +39,21 @@ def main():
     y_train = train_df["label"].values
     y_test = test_df["label"].values
 
-    # Initialize encoder
-    encoder = IndicBERTEncoder()
+    # ──────────────────────────────────────────
+    # Load precomputed IndicBERT embeddings
+    # ──────────────────────────────────────────
+    print("Looking for embeddings at:")
+    print(os.path.join(DATASET_DIR, "train_embeddings.npy"))
 
-    # Generate embeddings
-    print("Generating IndicBERT embeddings for training set...")
-    X_train_embed = encoder.encode_batch(train_df["clean_text"].astype(str).tolist())
-    print("Generating IndicBERT embeddings for test set...")
-    X_test_embed = encoder.encode_batch(test_df["clean_text"].astype(str).tolist())
+    X_train_embed = np.load(os.path.join(DATASET_DIR, "train_embeddings.npy"))
+    X_test_embed = np.load(os.path.join(DATASET_DIR, "test_embeddings.npy"))
 
-    # Handcrafted feature columns
+    print("Embedding shape:", X_train_embed.shape)
+    assert X_train_embed.shape[1] == 768, "Embedding dimension must be 768"
+
+    # ──────────────────────────────────────────
+    # Load handcrafted features
+    # ──────────────────────────────────────────
     feature_cols = [
         "url_count",
         "dot_count",
@@ -95,19 +69,39 @@ def main():
     X_train_hand = train_df[feature_cols].values
     X_test_hand = test_df[feature_cols].values
 
-    # Concatenate
+    assert X_train_hand.shape[1] == 9, "Handcrafted features must be 9"
+
+    # ──────────────────────────────────────────
+    # Concatenate embeddings + handcrafted
+    # ──────────────────────────────────────────
     X_train = np.concatenate([X_train_embed, X_train_hand], axis=1)
     X_test = np.concatenate([X_test_embed, X_test_hand], axis=1)
 
-    # Print feature vector dimension
-    print(f"Feature vector dimension: {X_train.shape[1]}")
+    print("Final feature dimension:", X_train.shape[1])
+    assert X_train.shape[1] == 777, "Final dimension must be 777"
 
+    # ──────────────────────────────────────────
     # Train model
-    model = RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1)
+    # ──────────────────────────────────────────
+    model = RandomForestClassifier(
+        n_estimators=200,
+        random_state=42,
+        n_jobs=-1,
+        class_weight="balanced",
+    )
+
     print("Training RandomForest classifier...")
     model.fit(X_train, y_train)
 
+    # ──────────────────────────────────────────
+    # Validate model feature count
+    # ──────────────────────────────────────────
+    print("Model expects features:", model.n_features_in_)
+    assert model.n_features_in_ == 777, "Model feature count mismatch"
+
+    # ──────────────────────────────────────────
     # Evaluate
+    # ──────────────────────────────────────────
     preds = model.predict(X_test)
     acc = accuracy_score(y_test, preds)
     cm = confusion_matrix(y_test, preds)
@@ -119,11 +113,29 @@ def main():
     print("Classification Report:")
     print(cr)
 
+    # ──────────────────────────────────────────
+    # Save metrics
+    # ──────────────────────────────────────────
+    metrics = {
+        "accuracy": float(acc),
+        "feature_dimension": int(model.n_features_in_),
+        "train_samples": int(len(y_train)),
+        "test_samples": int(len(y_test)),
+    }
+
+    os.makedirs(MODEL_DIR, exist_ok=True)
+
+    with open(os.path.join(MODEL_DIR, "model_metrics.json"), "w") as f:
+        json.dump(metrics, f, indent=4)
+
+    print("Model metrics saved successfully.")
+
+    # ──────────────────────────────────────────
     # Save model
-    os.makedirs(os.path.join(os.path.dirname(__file__), "..", "..", "..", "models"), exist_ok=True)
-    model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "models", "hybrid_random_forest.pkl"))
+    # ──────────────────────────────────────────
+    model_path = os.path.join(MODEL_DIR, "hybrid_random_forest.pkl")
     joblib.dump(model, model_path)
-    print(f"Saved model to: {model_path}")
+    print("Hybrid 777-d model saved successfully.")
 
 
 if __name__ == "__main__":
