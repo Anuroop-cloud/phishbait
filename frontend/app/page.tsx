@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/navbar"
 import { HeroSection } from "@/components/hero-section"
+import { LiveDemo } from "@/components/live-demo"
 import { HowItWorks } from "@/components/how-it-works"
 import { MultilingualSection } from "@/components/multilingual-section"
 import { WhySuraksha } from "@/components/why-suraksha"
@@ -11,6 +12,7 @@ export default function Page() {
     <main>
       <Navbar />
       <HeroSection />
+      <LiveDemo />
       <HowItWorks />
       <MultilingualSection />
       <WhySuraksha />

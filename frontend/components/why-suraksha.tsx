@@ -1,10 +1,8 @@
-import { Target, BrainCircuit, Fingerprint, ShieldAlert, Landmark, Phone, CreditCard, KeyRound } from "lucide-react"
+"use client"
 
-const stats = [
-  { icon: Target, label: "Detection Accuracy", value: "90%" },
-  { icon: BrainCircuit, label: "Hybrid AI Architecture", value: "IndicBERT+" },
-  { icon: Fingerprint, label: "Built for India", value: "12+ Languages" },
-]
+import { useEffect, useState } from "react"
+import { Target, BrainCircuit, Fingerprint, ShieldAlert, Landmark, Phone, CreditCard, KeyRound } from "lucide-react"
+import { fetchMetrics } from "@/lib/api"
 
 const scamTypes = [
   { icon: Landmark, label: "Bank Scams", description: "Fake alerts from SBI, HDFC, and other banks" },
@@ -15,6 +13,20 @@ const scamTypes = [
 ]
 
 export function WhySuraksha() {
+  const [accuracy, setAccuracy] = useState<string>("—")
+
+  useEffect(() => {
+    fetchMetrics()
+      .then((m) => setAccuracy(`${(m.accuracy * 100).toFixed(1)}%`))
+      .catch(() => setAccuracy("96%+"))
+  }, [])
+
+  const stats = [
+    { icon: Target, label: "Detection Accuracy", value: accuracy },
+    { icon: BrainCircuit, label: "Hybrid AI Architecture", value: "IndicBERT+" },
+    { icon: Fingerprint, label: "Built for India", value: "12+ Languages" },
+  ]
+
   return (
     <section id="why" className="mandala-bg-subtle py-20 lg:py-28">
       <div className="mx-auto max-w-7xl px-4 lg:px-8">

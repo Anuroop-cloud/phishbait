@@ -1,108 +1,58 @@
 "use client"
 
 import { useState } from "react"
-import { ShieldAlert, ShieldCheck, ShieldQuestion, Loader2, Sparkles, Link2, AlertTriangle, UserCheck } from "lucide-react"
+import {
+  ShieldAlert,
+  ShieldCheck,
+  Loader2,
+  Sparkles,
+  AlertTriangle,
+  CircleCheck,
+  BrainCircuit,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-
-type Result = {
-  status: "safe" | "suspicious" | "phishing"
-  reasons: string[]
-  language: string
-  confidence: number
-}
+import { analyzeText, type PredictResponse } from "@/lib/api"
 
 const statusConfig = {
-  safe: {
-    icon: ShieldCheck,
-    label: "Safe Message",
-    bgClass: "bg-accent/10 border-accent",
-    textClass: "text-accent",
-    badgeClass: "bg-accent text-accent-foreground",
-  },
-  suspicious: {
-    icon: ShieldQuestion,
-    label: "Suspicious Message",
-    bgClass: "bg-secondary/10 border-secondary",
-    textClass: "text-secondary",
-    badgeClass: "bg-secondary text-secondary-foreground",
-  },
-  phishing: {
+  Phishing: {
     icon: ShieldAlert,
     label: "Phishing Detected",
     bgClass: "bg-destructive/10 border-destructive",
     textClass: "text-destructive",
     badgeClass: "bg-destructive text-destructive-foreground",
   },
-}
-
-const reasonIcons: Record<string, typeof Link2> = {
-  url: Link2,
-  urgency: AlertTriangle,
-  authority: UserCheck,
-}
-
-function analyzeMessage(text: string): Result {
-  const lower = text.toLowerCase()
-  const hasUrl =
-    /https?:\/\/|www\.|\.com|\.in|bit\.ly/i.test(text)
-  const hasUrgency =
-    /तुरंत|உடனே|urgent|immediately|जल्दी|अभी|இப்போது|तत्काल|quickly|hurry/i.test(text)
-  const hasAuthority =
-    /rbi|sbi|bank|police|government|सरकार|पुलिस|बैंक|aadhaar|kyc|otp|verify|account.*blocked|suspended/i.test(text)
-  const hasHindi = /[\u0900-\u097F]/.test(text)
-  const hasTamil = /[\u0B80-\u0BFF]/.test(text)
-  const hasTelugu = /[\u0C00-\u0C7F]/.test(text)
-
-  let language = "English"
-  if (hasHindi) language = "Hindi"
-  else if (hasTamil) language = "Tamil"
-  else if (hasTelugu) language = "Telugu"
-
-  const reasons: string[] = []
-  let score = 0
-
-  if (hasUrl) {
-    reasons.push("url:Suspicious URL detected in message")
-    score += 35
-  }
-  if (hasUrgency) {
-    reasons.push("urgency:Urgency language pattern found")
-    score += 30
-  }
-  if (hasAuthority) {
-    reasons.push("authority:Authority impersonation detected")
-    score += 35
-  }
-
-  if (score === 0) {
-    return { status: "safe", reasons: ["No suspicious patterns detected"], language, confidence: 92 }
-  }
-
-  return {
-    status: score >= 60 ? "phishing" : "suspicious",
-    reasons,
-    language,
-    confidence: Math.min(95, 70 + score * 0.3),
-  }
+  Safe: {
+    icon: ShieldCheck,
+    label: "Safe Message",
+    bgClass: "bg-accent/10 border-accent",
+    textClass: "text-accent",
+    badgeClass: "bg-accent text-accent-foreground",
+  },
 }
 
 export function LiveDemo() {
   const [message, setMessage] = useState("")
-  const [result, setResult] = useState<Result | null>(null)
+  const [result, setResult] = useState<PredictResponse | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (!message.trim()) return
     setLoading(true)
     setResult(null)
-    setTimeout(() => {
-      setResult(analyzeMessage(message))
+    setError(null)
+    try {
+      const data = await analyzeText(message)
+      setResult(data)
+    } catch {
+      setError("Something went wrong. Please try again.")
+    } finally {
       setLoading(false)
-    }, 1500)
+    }
   }
 
-  const config = result ? statusConfig[result.status] : null
+  const config = result ? statusConfig[result.prediction] : null
   const StatusIcon = config?.icon
 
   return (
@@ -168,38 +118,61 @@ export function LiveDemo() {
                 )}
               </Button>
 
+              {/* Error */}
+              {error && (
+                <div className="mt-6 rounded-xl border-2 border-destructive/40 bg-destructive/5 p-5">
+                  <div className="flex items-center gap-2 text-sm text-destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    {error}
+                  </div>
+                </div>
+              )}
+
               {/* Result card */}
               {result && config && StatusIcon && (
                 <div className={`mt-6 rounded-xl border-2 p-5 ${config.bgClass}`}>
-                  <div className="mb-3 flex items-center gap-3">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${config.badgeClass}`}>
-                      <StatusIcon className="h-5 w-5" />
+                  {/* Header row: status + threat score */}
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${config.badgeClass}`}>
+                        <StatusIcon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className={`text-lg font-bold ${config.textClass}`}>{config.label}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {(result.confidence * 100).toFixed(1)}% confidence
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className={`text-lg font-bold ${config.textClass}`}>{config.label}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {result.language} &middot; {result.confidence}% confidence
-                      </p>
+                    {/* Threat Score Circle */}
+                    <div className="flex flex-col items-center">
+                      <div className={`flex h-14 w-14 items-center justify-center rounded-full ${config.badgeClass}`}>
+                        <span className="text-xl font-extrabold">{result.threat_score}</span>
+                      </div>
+                      <span className="mt-1 text-xs text-muted-foreground">Threat Score</span>
                     </div>
                   </div>
 
+                  {/* Model accuracy badge */}
+                  {result.model_accuracy != null && (
+                    <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-muted-foreground">
+                      <BrainCircuit className="h-3.5 w-3.5" />
+                      Model Accuracy: {(result.model_accuracy * 100).toFixed(1)}%
+                    </div>
+                  )}
+
+                  {/* Reasons */}
                   <ul className="flex flex-col gap-2">
-                    {result.reasons.map((reason, i) => {
-                      const parts = reason.split(":")
-                      const iconKey = parts.length > 1 ? parts[0] : null
-                      const text = parts.length > 1 ? parts[1] : reason
-                      const ReasonIcon = iconKey ? reasonIcons[iconKey] : null
-                      return (
-                        <li key={i} className="flex items-center gap-2 text-sm text-foreground">
-                          {ReasonIcon ? (
-                            <ReasonIcon className={`h-4 w-4 ${config.textClass}`} />
-                          ) : (
-                            <ShieldCheck className="h-4 w-4 text-accent" />
-                          )}
-                          {text}
-                        </li>
-                      )
-                    })}
+                    {result.reasons.map((reason, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                        {result.prediction === "Phishing" ? (
+                          <AlertTriangle className={`mt-0.5 h-4 w-4 shrink-0 ${config.textClass}`} />
+                        ) : (
+                          <CircleCheck className={`mt-0.5 h-4 w-4 shrink-0 ${config.textClass}`} />
+                        )}
+                        {reason}
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}
