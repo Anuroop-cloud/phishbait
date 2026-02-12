@@ -2,11 +2,9 @@
 
 import { useState } from "react"
 import { Shield, Menu, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 const navLinks = [
   { label: "How It Works", href: "#how-it-works" },
-  { label: "Demo", href: "#demo" },
   { label: "Languages", href: "#languages" },
   { label: "Why SurakshaAI", href: "#why" },
   { label: "Community", href: "#community" },
@@ -42,13 +40,6 @@ export function Navbar() {
           ))}
         </ul>
 
-        {/* Desktop CTA */}
-        <div className="hidden lg:block">
-          <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
-            <a href="#demo">Check a Message</a>
-          </Button>
-        </div>
-
         {/* Mobile toggle */}
         <button
           className="lg:hidden"
@@ -75,11 +66,6 @@ export function Navbar() {
               </li>
             ))}
           </ul>
-          <Button asChild className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-            <a href="#demo" onClick={() => setMobileOpen(false)}>
-              Check a Message
-            </a>
-          </Button>
         </div>
       )}
     </header>

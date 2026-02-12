@@ -41,10 +41,9 @@ export function HeroSection() {
           </div>
         </div>
 
-        {/* Illustration + Demo Input */}
+        {/* Illustration */}
         <div className="animate-fade-in-up flex-1">
           <div className="mx-auto w-full max-w-md lg:max-w-lg">
-            {/* Aunty illustration */}
             <div className="relative mb-6">
               <div className="absolute -inset-4 rounded-3xl bg-primary/15 blur-2xl" />
               <Image
@@ -56,13 +55,13 @@ export function HeroSection() {
                 priority
               />
             </div>
-
-            {/* Demo input directly below */}
-            <div className="relative z-10">
-              <HeroDemoInput />
-            </div>
           </div>
         </div>
+      </div>
+
+      {/* Full-width Demo Input */}
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-16 lg:px-8">
+        <HeroDemoInput />
       </div>
 
       {/* Pattern divider */}

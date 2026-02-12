@@ -34,10 +34,10 @@ const statusConfig = {
   "Legitimate": {
     icon: ShieldCheck,
     label: "Legitimate Message",
-    bgClass: "bg-accent/10 border-accent",
-    textClass: "text-accent",
-    badgeClass: "bg-accent text-accent-foreground",
-    scoreBg: "bg-accent",
+    bgClass: "bg-green-400/10 border-green-400",
+    textClass: "text-green-400 dark:text-green-300",
+    badgeClass: "bg-green-400 text-white",
+    scoreBg: "bg-green-400",
   },
 }
 
@@ -139,7 +139,7 @@ export function HeroDemoInput() {
   const StatusIcon = config?.icon
 
   return (
-    <div id="demo" className="w-full">
+    <div id="demo" className="w-full scroll-mt-[30vh]">
       {/* Input card - styled like reference */}
       <div
         className="relative cursor-text overflow-hidden rounded-2xl border border-border bg-muted/40 backdrop-blur-sm transition-all focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/20"
@@ -182,10 +182,11 @@ export function HeroDemoInput() {
       </div>
 
       {/* Analyze button */}
+      <div className="mt-3 flex justify-center">
       <Button
         onClick={handleAnalyze}
         disabled={!message.trim() || loading}
-        className="mt-3 w-full bg-primary text-primary-foreground hover:bg-primary/85"
+        className="bg-primary text-primary-foreground hover:bg-primary/85 px-10"
         size="lg"
       >
         {loading ? (
@@ -197,6 +198,7 @@ export function HeroDemoInput() {
           "Analyze Message"
         )}
       </Button>
+      </div>
 
       {/* Error */}
       {error && (

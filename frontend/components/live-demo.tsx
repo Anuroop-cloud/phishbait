@@ -32,9 +32,9 @@ const statusConfig = {
   "Legitimate": {
     icon: ShieldCheck,
     label: "Legitimate Message",
-    bgClass: "bg-accent/10 border-accent",
-    textClass: "text-accent",
-    badgeClass: "bg-accent text-accent-foreground",
+    bgClass: "bg-green-400/10 border-green-400",
+    textClass: "text-green-400 dark:text-green-300",
+    badgeClass: "bg-green-400 text-white",
   },
 }
 
