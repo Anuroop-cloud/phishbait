@@ -4,12 +4,12 @@ inference.py
 Production-ready single-text prediction for the multilingual
 phishing detection system.
 
-Components loaded once at module level:
-  - Hybrid RandomForest model   (models/hybrid_random_forest.pkl)
-  - IndicBERT encoder           (768-d CLS embeddings)
-  - DataPipeline                (text cleaning + 9 handcrafted features)
+Dual-model architecture loaded once at module level:
+  1. TEXT MODEL  — Hybrid RandomForest (IndicBERT 768-d + 9 handcrafted = 777-d)
+  2. URL MODEL   — RandomForest trained on PhiUSIIL Kaggle URL features (20-d)
 
-Final feature vector: 768 (embedding) + 9 (handcrafted) = 777 dimensions.
+Both outputs feed into the explanation engine which produces a
+combined verdict, threat score, confidence, and human-readable reasons.
 """
 
 # ──────────────────────────────────────────────
@@ -32,33 +32,58 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from indicbert_encoder import IndicBERTEncoder
 from data_pipeline import DataPipeline
+from url_feature_extractor import (
+    extract_urls,
+    extract_url_features,
+    get_triggered_features,
+    URL_FEATURE_COLUMNS,
+)
+from explanation_engine import generate_explanation
 
 
 # ──────────────────────────────────────────────
-# 2. LOAD MODEL & ENCODER ONCE (GLOBAL)
+# 2. LOAD MODELS & ENCODER ONCE (GLOBAL)
 # ──────────────────────────────────────────────
-print("[inference] Loading hybrid RandomForest model...")
-model = joblib.load(os.path.join(MODEL_DIR, "hybrid_random_forest.pkl"))
+
+# ── 2a. Text model ───────────────────────────
+print("[inference] Loading hybrid RandomForest text model...")
+text_model = joblib.load(os.path.join(MODEL_DIR, "hybrid_random_forest.pkl"))
 
 print("[inference] Initializing IndicBERT encoder...")
 encoder = IndicBERTEncoder()
 
-# Only need the pipeline instance for clean_text() and extract_features()
 pipeline = DataPipeline(os.path.join(DATASET_DIR, "train_processed.csv"))
 
-# Load saved model metrics
+# ── 2b. URL model ────────────────────────────
+url_model_path = os.path.join(MODEL_DIR, "url_random_forest.pkl")
+if os.path.exists(url_model_path):
+    print("[inference] Loading URL RandomForest model...")
+    url_model = joblib.load(url_model_path)
+    print("[inference] URL model loaded OK")
+else:
+    url_model = None
+    print("[inference] WARNING: url_random_forest.pkl not found — URL analysis disabled.")
+
+# ── 2c. Metrics ──────────────────────────────
 metrics_path = os.path.join(MODEL_DIR, "model_metrics.json")
 if os.path.exists(metrics_path):
     with open(metrics_path, "r") as f:
         MODEL_METRICS = json.load(f)
-    print(f"[inference] Model accuracy: {MODEL_METRICS.get('accuracy')}")
+    print(f"[inference] Text model accuracy: {MODEL_METRICS.get('accuracy')}")
 else:
     MODEL_METRICS = {"accuracy": None}
     print("[inference] WARNING: model_metrics.json not found.")
 
-print("Model and encoder successfully initialized.")
+url_metrics_path = os.path.join(MODEL_DIR, "url_model_metrics.json")
+if os.path.exists(url_metrics_path):
+    with open(url_metrics_path, "r") as f:
+        url_metrics = json.load(f)
+    MODEL_METRICS["url_accuracy"] = url_metrics.get("accuracy")
+    print(f"[inference] URL model accuracy: {url_metrics.get('accuracy')}")
 
-feature_cols = [
+print("Models and encoder successfully initialized.")
+
+text_feature_cols = [
     "url_count",
     "dot_count",
     "has_at_symbol",
@@ -70,12 +95,83 @@ feature_cols = [
     "special_char_count",
 ]
 
+# ── Kaggle column order used when training the URL model ──
+URL_KAGGLE_FEATURE_ORDER = [
+    "URLLength", "DomainLength", "IsHTTPS", "IsDomainIP",
+    "NoOfSubDomain", "TLDLength", "NoOfDegitsInURL",
+    "DegitRatioInURL", "LetterRatioInURL",
+    "NoOfOtherSpecialCharsInURL", "SpacialCharRatioInURL",
+    "HasObfuscation", "NoOfLettersInURL", "ObfuscationRatio",
+    "CharContinuationRate", "URLSimilarityIndex", "URLCharProb",
+    "TLDLegitimateProb", "NoOfEqualsInURL", "NoOfQMarkInURL",
+]
+
+# Map our extracted feature names → Kaggle column positions
+_OUR_TO_KAGGLE_MAP = {
+    "url_length":        "URLLength",
+    "domain_length":     "DomainLength",
+    "is_https":          "IsHTTPS",
+    "is_domain_ip":      "IsDomainIP",
+    "num_subdomains":    "NoOfSubDomain",
+    "tld_length":        "TLDLength",
+    "num_digits_in_url": "NoOfDegitsInURL",
+    "digit_ratio":       "DegitRatioInURL",
+    "letter_ratio":      "LetterRatioInURL",
+    "num_special_chars": "NoOfOtherSpecialCharsInURL",
+    "special_char_ratio":"SpacialCharRatioInURL",
+    "has_obfuscation":   "HasObfuscation",
+}
+
+
+def _url_features_to_kaggle_vector(features: dict) -> np.ndarray:
+    """Convert our extracted URL features dict into the 20-d vector
+    in the same column order the URL model was trained on.
+
+    For columns we can't compute from a raw URL string alone
+    (e.g. page-level features like LineOfCode) we use safe defaults.
+    """
+    vec = []
+    for kaggle_col in URL_KAGGLE_FEATURE_ORDER:
+        # Find the matching key from our feature dict
+        found = False
+        for our_key, kag_key in _OUR_TO_KAGGLE_MAP.items():
+            if kag_key == kaggle_col:
+                vec.append(float(features.get(our_key, 0)))
+                found = True
+                break
+        if not found:
+            # Columns we can approximate
+            if kaggle_col == "NoOfLettersInURL":
+                vec.append(float(sum(c.isalpha() for c in str(features.get("url_length", "")))))
+                # Better: count from original URL
+                url_len = features.get("url_length", 0)
+                letter_r = features.get("letter_ratio", 0)
+                vec[-1] = float(round(url_len * letter_r))
+            elif kaggle_col == "ObfuscationRatio":
+                vec.append(0.0)
+            elif kaggle_col == "CharContinuationRate":
+                vec.append(0.8)  # neutral default
+            elif kaggle_col == "URLSimilarityIndex":
+                vec.append(50.0)  # neutral default
+            elif kaggle_col == "URLCharProb":
+                vec.append(0.05)  # neutral default
+            elif kaggle_col == "TLDLegitimateProb":
+                tld_legit = features.get("tld_is_legit", 0)
+                vec.append(0.5 if tld_legit else 0.01)
+            elif kaggle_col == "NoOfEqualsInURL":
+                vec.append(0.0)
+            elif kaggle_col == "NoOfQMarkInURL":
+                vec.append(0.0)
+            else:
+                vec.append(0.0)
+    return np.array(vec, dtype=np.float64)
+
 
 # ──────────────────────────────────────────────
 # 3. PREDICTION FUNCTION
 # ──────────────────────────────────────────────
 def predict(text: str) -> dict:
-    """Run end-to-end phishing prediction on a single text.
+    """Run dual-model phishing prediction on a single text.
 
     Parameters
     ----------
@@ -86,37 +182,70 @@ def predict(text: str) -> dict:
     -------
     dict
         {
-            "prediction": "Phishing" | "Safe",
-            "confidence": float   # 0.0 – 1.0
+            "classification":    "Legitimate" | "Suspicious" | "Highly Likely Phishing",
+            "confidence_score":  float (0.0 - 1.0),
+            "reasoning":         str,
+            "detected_signals":  list[str],
+            "prediction":        str,
+            "threat_score":      int (0-100),
+            "confidence":        float (0.0 - 1.0),
+            "model_accuracy":    float,
+            "reasons":           list[str],
+            "summary":           str,
         }
     """
-    # Clean text
+    # ── A. Text model ────────────────────────
     clean = pipeline.clean_text(text)
-
-    # Extract 9 handcrafted features
     features = pipeline.extract_features(clean)
-
-    # Get 768-d IndicBERT embedding
     embedding = encoder.encode(clean)
+    text_vector = np.concatenate([embedding, features]).reshape(1, -1)
 
-    # Concatenate → (777,)
-    final_vector = np.concatenate([embedding, features])
+    text_pred_raw = text_model.predict(text_vector)[0]
+    text_prob_all = text_model.predict_proba(text_vector)[0]
+    # probability of the PHISHING class (class 1)
+    text_phish_prob = float(text_prob_all[1]) if len(text_prob_all) > 1 else float(text_prob_all[0])
+    text_prediction = "Phishing" if text_pred_raw == 1 else "Safe"
 
-    # Reshape for sklearn → (1, 777)
-    final_vector = final_vector.reshape(1, -1)
+    # ── B. URL model (if URLs present) ───────
+    urls = extract_urls(text)
+    url_probability = None
+    url_prediction = None
+    all_url_triggers: list[str] = []
 
-    # Predict
-    pred = model.predict(final_vector)[0]
-    prob = model.predict_proba(final_vector)[0]
+    if urls and url_model is not None:
+        url_probs = []
+        for u in urls:
+            feats = extract_url_features(u)
+            triggers = get_triggered_features(feats)
+            all_url_triggers.extend(triggers)
 
-    confidence = float(np.max(prob))
-    label = "Phishing" if pred == 1 else "Safe"
+            vec = _url_features_to_kaggle_vector(feats).reshape(1, -1)
+            vec = np.nan_to_num(vec, nan=0.0, posinf=0.0, neginf=0.0)
+            prob = url_model.predict_proba(vec)[0]
+            phish_p = float(prob[1]) if len(prob) > 1 else float(prob[0])
+            url_probs.append(phish_p)
 
-    return {
-        "prediction": label,
-        "confidence": round(confidence, 4),
-        "model_accuracy": MODEL_METRICS.get("accuracy"),
-    }
+        # Take the maximum phishing probability across all URLs
+        url_probability = max(url_probs)
+        url_prediction = "Phishing" if url_probability >= 0.5 else "Safe"
+
+        # Deduplicate triggers
+        all_url_triggers = list(dict.fromkeys(all_url_triggers))
+
+    # ── C. Explanation engine ────────────────
+    result = generate_explanation(
+        user_text=text,
+        text_probability=text_phish_prob,
+        text_prediction=text_prediction,
+        url_probability=url_probability,
+        url_prediction=url_prediction,
+        url_triggered=all_url_triggers,
+    )
+
+    # Attach model accuracy
+    result["model_accuracy"] = MODEL_METRICS.get("accuracy")
+
+    return result
 
 
 # ──────────────────────────────────────────────
@@ -124,13 +253,39 @@ def predict(text: str) -> dict:
 # ──────────────────────────────────────────────
 if __name__ == "__main__":
     samples = [
+        # Should be: Highly Likely Phishing
         "Your account will be suspended immediately. Click http://bit.ly/abc",
+        # Should be: Legitimate
         "Meeting scheduled for tomorrow at 10 AM.",
+        # Should be: Highly Likely Phishing (Hindi)
         "तुरंत अपना खाता सत्यापित करें। http://tinyurl.com/xyz",
+        # Should be: Legitimate
+        "Check out https://www.google.com for more info.",
+        # Should be: Highly Likely Phishing
+        "URGENT: Your SBI account is blocked! Verify at http://sbi-secure-login.xyz/verify?id=99",
+        # Should be: Highly Likely Phishing
+        "Your account has been suspended. Verify immediately at http://bank-secure-login.xyz",
+        # Should be: Legitimate (informational OTP)
+        "Your OTP is 482913. Do not share this OTP with anyone. Valid for 10 minutes.",
+        # Should be: Legitimate (Tamil OTP)
+        "உங்கள் OTP 834521. இதை யாரிடமும் பகிர வேண்டாம்.",
+        # Should be: Highly Likely Phishing (OTP request)
+        "Your SBI account is locked. Share your OTP to unlock: http://sbi-verify.xyz",
+        # Should be: Legitimate (casual)
+        "Hey, let's catch up for coffee tomorrow at 5pm?",
     ]
 
     for text in samples:
         result = predict(text)
         snippet = text[:70] + ("..." if len(text) > 70 else "")
-        print(f"Text : \"{snippet}\"")
-        print(f"  → {result['prediction']}  (confidence {result['confidence']})\n")
+        print(f"\nText: \"{snippet}\"")
+        print(f"  Classification : {result['classification']}")
+        print(f"  Threat Score   : {result['threat_score']}")
+        print(f"  Confidence     : {result['confidence_score']}")
+        print(f"  Summary        : {result['summary']}")
+        print(f"  Signals        : {result['detected_signals']}")
+        print(f"  Reasoning      : {result['reasoning'][:120]}...")
+        print(f"  Reasons:")
+        for r in result["reasons"]:
+            print(f"    - {r}")
+

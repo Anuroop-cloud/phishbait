@@ -15,16 +15,23 @@ import { Card, CardContent } from "@/components/ui/card"
 import { analyzeText, type PredictResponse } from "@/lib/api"
 
 const statusConfig = {
-  Phishing: {
+  "Highly Likely Phishing": {
     icon: ShieldAlert,
     label: "Phishing Detected",
     bgClass: "bg-destructive/10 border-destructive",
     textClass: "text-destructive",
     badgeClass: "bg-destructive text-destructive-foreground",
   },
-  Safe: {
+  "Suspicious": {
+    icon: AlertTriangle,
+    label: "Suspicious Message",
+    bgClass: "bg-yellow-500/10 border-yellow-500",
+    textClass: "text-yellow-600 dark:text-yellow-400",
+    badgeClass: "bg-yellow-500 text-white",
+  },
+  "Legitimate": {
     icon: ShieldCheck,
-    label: "Safe Message",
+    label: "Legitimate Message",
     bgClass: "bg-accent/10 border-accent",
     textClass: "text-accent",
     badgeClass: "bg-accent text-accent-foreground",
@@ -52,7 +59,7 @@ export function LiveDemo() {
     }
   }
 
-  const config = result ? statusConfig[result.prediction] : null
+  const config = result ? statusConfig[result.classification] : null
   const StatusIcon = config?.icon
 
   return (
@@ -153,6 +160,27 @@ export function LiveDemo() {
                     </div>
                   </div>
 
+                  {/* Summary */}
+                  {result.summary && (
+                    <p className="mb-4 text-sm font-medium text-foreground/80">{result.summary}</p>
+                  )}
+
+                  {/* Reasoning */}
+                  {result.reasoning && (
+                    <p className="mb-4 text-sm italic text-muted-foreground leading-relaxed">{result.reasoning}</p>
+                  )}
+
+                  {/* Detected signals */}
+                  {result.detected_signals && result.detected_signals.length > 0 && (
+                    <div className="mb-4 flex flex-wrap gap-1.5">
+                      {result.detected_signals.map((signal, i) => (
+                        <span key={i} className="rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-xs text-muted-foreground">
+                          {signal.replace(/_/g, " ")}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Model accuracy badge */}
                   {result.model_accuracy != null && (
                     <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-muted-foreground">
@@ -165,7 +193,9 @@ export function LiveDemo() {
                   <ul className="flex flex-col gap-2">
                     {result.reasons.map((reason, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-foreground">
-                        {result.prediction === "Phishing" ? (
+                        {result.classification === "Highly Likely Phishing" ? (
+                          <AlertTriangle className={`mt-0.5 h-4 w-4 shrink-0 ${config.textClass}`} />
+                        ) : result.classification === "Suspicious" ? (
                           <AlertTriangle className={`mt-0.5 h-4 w-4 shrink-0 ${config.textClass}`} />
                         ) : (
                           <CircleCheck className={`mt-0.5 h-4 w-4 shrink-0 ${config.textClass}`} />

@@ -65,7 +65,7 @@ export function CommunitySection() {
                   {/* Bot analysis */}
                   <div className="self-end rounded-2xl rounded-tr-md bg-primary px-4 py-2.5">
                     <p className="text-sm font-medium text-primary-foreground">
-                      {'Phishing Alert! This message is fake.'}
+                      {'Highly Likely Phishing! This message is fake.'}
                     </p>
                     <p className="mt-1 text-xs text-primary-foreground/70">
                       {'Suspicious URL + Urgency language + Bank impersonation detected.'}

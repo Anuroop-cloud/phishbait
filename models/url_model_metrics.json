@@ -1,0 +1,28 @@
+{
+  "accuracy": 0.9998515659789223,
+  "feature_count": 20,
+  "train_samples": 188636,
+  "test_samples": 47159,
+  "feature_columns_kaggle": [
+    "URLLength",
+    "DomainLength",
+    "IsHTTPS",
+    "IsDomainIP",
+    "NoOfSubDomain",
+    "TLDLength",
+    "NoOfDegitsInURL",
+    "DegitRatioInURL",
+    "LetterRatioInURL",
+    "NoOfOtherSpecialCharsInURL",
+    "SpacialCharRatioInURL",
+    "HasObfuscation",
+    "NoOfLettersInURL",
+    "ObfuscationRatio",
+    "CharContinuationRate",
+    "URLSimilarityIndex",
+    "URLCharProb",
+    "TLDLegitimateProb",
+    "NoOfEqualsInURL",
+    "NoOfQMarkInURL"
+  ]
+}
