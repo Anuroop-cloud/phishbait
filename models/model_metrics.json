@@ -1,6 +1,36 @@
 {
-    "accuracy": 0.963855421686747,
-    "feature_dimension": 777,
-    "train_samples": 329,
-    "test_samples": 83
+  "accuracy": 0.995556,
+  "precision": 0.995556,
+  "recall": 0.995556,
+  "f1_score": 0.995556,
+  "cv_f1_mean": 0.994701,
+  "cv_f1_std": 0.000552,
+  "feature_dimension": 777,
+  "embedding_dimension": 768,
+  "handcrafted_features": 9,
+  "train_samples": 3597,
+  "test_samples": 900,
+  "total_unique_samples": 4497,
+  "class_distribution": {
+    "train": {
+      "legitimate": 1798,
+      "phishing": 1799
+    },
+    "test": {
+      "legitimate": 450,
+      "phishing": 450
+    }
+  },
+  "confusion_matrix": {
+    "TN": 448,
+    "FP": 2,
+    "FN": 2,
+    "TP": 448
+  },
+  "embedding_time_seconds": 94.5,
+  "training_time_seconds": 1.6,
+  "total_time_seconds": 114.5,
+  "model_path": "C:\\Users\\anuro\\Projects\\phishbait\\phishbait\\models\\hybrid_random_forest.pkl",
+  "encoder": "ai4bharat/IndicBERTv2-MLM-only",
+  "classifier": "RandomForest(n_estimators=200, class_weight=balanced)"
 }
