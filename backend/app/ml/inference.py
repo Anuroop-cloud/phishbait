@@ -18,6 +18,7 @@ combined verdict, threat score, confidence, and human-readable reasons.
 import json
 import os
 import sys
+from urllib.parse import urlparse
 
 import numpy as np
 import joblib
@@ -106,6 +107,16 @@ URL_KAGGLE_FEATURE_ORDER = [
     "TLDLegitimateProb", "NoOfEqualsInURL", "NoOfQMarkInURL",
 ]
 
+# Well-known legitimate domains that should not be over-flagged when
+# there are no structural URL red flags.
+TRUSTED_DOMAINS = {
+    "google.com",
+    "accounts.google.com",
+    "github.com",
+    "microsoft.com",
+    "sbi.co.in",
+}
+
 # Map our extracted feature names → Kaggle column positions
 _OUR_TO_KAGGLE_MAP = {
     "url_length":        "URLLength",
@@ -167,6 +178,42 @@ def _url_features_to_kaggle_vector(features: dict) -> np.ndarray:
     return np.array(vec, dtype=np.float64)
 
 
+def _is_trusted_domain(url: str) -> bool:
+    """Return True if URL belongs to a known trusted domain/subdomain."""
+    try:
+        parsed = urlparse(url if url.startswith("http") else f"https://{url}")
+        host = (parsed.netloc or "").lower()
+        if ":" in host:
+            host = host.split(":", 1)[0]
+        if host.startswith("www."):
+            host = host[4:]
+
+        return any(host == d or host.endswith(f".{d}") for d in TRUSTED_DOMAINS)
+    except Exception:
+        return False
+
+
+def _is_url_only_input(text: str, urls: list[str]) -> bool:
+    """True when user input is essentially just a URL (no extra message text)."""
+    if len(urls) != 1:
+        return False
+
+    raw = (text or "").strip()
+    single = urls[0].strip()
+
+    # exact match, or exact match after normalizing trailing slash
+    if raw == single:
+        return True
+    if raw.rstrip("/") == single.rstrip("/"):
+        return True
+
+    # if no spaces and URL is the whole input token
+    if " " not in raw and raw.startswith(single):
+        return True
+
+    return False
+
+
 # ──────────────────────────────────────────────
 # 3. PREDICTION FUNCTION
 # ──────────────────────────────────────────────
@@ -206,8 +253,14 @@ def predict(text: str) -> dict:
     text_phish_prob = float(text_prob_all[1]) if len(text_prob_all) > 1 else float(text_prob_all[0])
     text_prediction = "Phishing" if text_pred_raw == 1 else "Safe"
 
-    # ── B. URL model (if URLs present) ───────
+    # If input is just a URL token, the text model tends to overreact to
+    # brand/security words. Let the URL model carry most of the signal.
     urls = extract_urls(text)
+    if _is_url_only_input(text, urls):
+        text_phish_prob = min(text_phish_prob, 0.20)
+        text_prediction = "Safe" if text_phish_prob < 0.5 else "Phishing"
+
+    # ── B. URL model (if URLs present) ───────
     url_probability = None
     url_prediction = None
     all_url_triggers: list[str] = []
@@ -223,6 +276,17 @@ def predict(text: str) -> dict:
             vec = np.nan_to_num(vec, nan=0.0, posinf=0.0, neginf=0.0)
             prob = url_model.predict_proba(vec)[0]
             phish_p = float(prob[1]) if len(prob) > 1 else float(prob[0])
+
+            # Dampening rule 1: if URL has no structural red flags and uses HTTPS,
+            # avoid over-penalizing benign links due to model mismatch.
+            if not triggers and feats.get("is_https", 0) == 1:
+                phish_p = min(phish_p, 0.35)
+
+            # Dampening rule 2: strong trust fallback for known legitimate domains
+            # when no suspicious URL triggers are present.
+            if not triggers and _is_trusted_domain(u):
+                phish_p = min(phish_p, 0.08)
+
             url_probs.append(phish_p)
 
         # Take the maximum phishing probability across all URLs

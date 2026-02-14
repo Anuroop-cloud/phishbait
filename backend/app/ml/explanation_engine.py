@@ -188,7 +188,9 @@ def _detect_signals(text: str, has_urls: bool) -> tuple[list[str], list[str]]:
             s in signals
             for s in ["urgency", "threat", "otp_request", "sensitive_info_request"]
         )
-        if has_red_flags or has_urls:
+        # Important: do not treat a plain URL containing authority names as
+        # impersonation unless other red flags are also present.
+        if has_red_flags:
             signals.append("impersonation")
             reasons.append(
                 f'References authority/institution "{found_auth[0]}" combined with other red flags.'
@@ -277,6 +279,24 @@ def generate_explanation(
     ]
     rule_boost = min(0.15, len(red_flag_signals) * 0.05)
 
+    # URL structural trigger boost (from url_feature_extractor)
+    url_trigger_boost = min(0.25, len(url_triggered) * 0.08)
+
+    # High-severity URL indicators should materially increase risk even if
+    # text-only probability is low (common for URL-only inputs).
+    has_high_risk_url_trigger = any(
+        any(
+            marker in t.lower()
+            for marker in [
+                "known suspicious",
+                "raw ip address",
+                "obfuscation",
+                "multiple phishing keywords",
+            ]
+        )
+        for t in url_triggered
+    )
+
     # Legitimacy dampener for genuine OTP messages
     legit_dampener = 0.35 if is_likely_legit_otp else 0.0
 
@@ -289,11 +309,16 @@ def generate_explanation(
         elif text_probability >= 0.5 and url_triggered:
             agreement_bonus = 0.08
 
-        combined_prob = base + agreement_bonus + rule_boost - legit_dampener
+        combined_prob = base + agreement_bonus + rule_boost + url_trigger_boost - legit_dampener
     else:
         combined_prob = text_probability + rule_boost - legit_dampener
 
     combined_prob = max(0.0, min(1.0, combined_prob))
+
+    # Guardrail: elevate to at least suspicious when explicit high-risk URL
+    # structural indicators are present.
+    if has_high_risk_url_trigger:
+        combined_prob = max(combined_prob, 0.62)
 
     # ---- Determine classification ----
     no_red_flags = not red_flag_signals and not url_triggered

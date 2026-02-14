@@ -18,7 +18,7 @@ from urllib.parse import urlparse, parse_qs
 LEGIT_TLDS = {
     "com", "org", "net", "edu", "gov", "mil", "int",
     "co", "io", "us", "uk", "in", "de", "fr", "jp",
-    "au", "ca", "br", "ru", "cn", "info", "biz",
+    "au", "ca", "br", "ru", "cn", "info", "biz", "co.in"
 }
 
 # ── Suspicious / free-hosting / shortener domains ────────
@@ -31,11 +31,9 @@ SUSPICIOUS_DOMAINS = {
 
 # ── Phishing-bait keywords often embedded in URLs ────────
 PHISH_KEYWORDS = {
-    "login", "signin", "verify", "account", "secure",
+    "login", "signin", "verify", "secure",
     "update", "confirm", "banking", "password", "credential",
     "suspend", "alert", "limited", "restore", "unlock",
-    "wallet", "paypal", "amazon", "netflix", "apple",
-    "microsoft", "google", "facebook", "instagram",
 }
 
 URL_REGEX = re.compile(
@@ -104,8 +102,10 @@ def extract_url_features(url: str) -> dict:
     has_obfuscation = 1 if ("%" in url or "@" in parsed.netloc) else 0
 
     # ── 7. Suspicious domain flag ───────────
+    # Exact/suffix match only (avoid substring false positives like
+    # "microsoft.com" accidentally matching "t.co").
     is_suspicious_domain = 1 if any(
-        sd in domain for sd in SUSPICIOUS_DOMAINS
+        domain == sd or domain.endswith(f".{sd}") for sd in SUSPICIOUS_DOMAINS
     ) else 0
 
     # ── 8. Phishing keyword count ───────────
