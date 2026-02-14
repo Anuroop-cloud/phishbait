@@ -290,7 +290,8 @@ def generate_explanation(
     rule_boost = min(0.15, len(red_flag_signals) * 0.05)
 
     # URL structural trigger boost (from url_feature_extractor)
-    url_trigger_boost = min(0.25, len(url_triggered) * 0.08)
+    # Keep this moderate so borderline alerts can remain in Suspicious.
+    url_trigger_boost = min(0.16, len(url_triggered) * 0.05)
 
     # High-severity URL indicators should materially increase risk even if
     # text-only probability is low (common for URL-only inputs).
@@ -317,9 +318,9 @@ def generate_explanation(
 
         agreement_bonus = 0.0
         if text_probability >= 0.5 and url_probability >= 0.5:
-            agreement_bonus = 0.10
+            agreement_bonus = 0.06
         elif text_probability >= 0.5 and url_triggered:
-            agreement_bonus = 0.08
+            agreement_bonus = 0.04
 
         combined_prob = base + agreement_bonus + rule_boost + url_trigger_boost - legit_dampener
     else:
@@ -344,10 +345,12 @@ def generate_explanation(
     elif no_red_flags and combined_prob < 0.6:
         classification = "Legitimate"
         summary = "No strong phishing indicators were detected in this message."
-    elif combined_prob >= 0.7:
+    elif combined_prob >= 0.82 or (
+        combined_prob >= 0.72 and (has_high_risk_url_trigger or len(red_flag_signals) >= 3)
+    ):
         classification = "Highly Likely Phishing"
         summary = "This message is highly likely a phishing or scam attempt."
-    elif combined_prob >= 0.4:
+    elif combined_prob >= 0.45:
         classification = "Suspicious"
         summary = "This message contains suspicious elements -- exercise caution."
     else:

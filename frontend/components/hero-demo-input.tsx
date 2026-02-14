@@ -75,6 +75,7 @@ export function HeroDemoInput() {
   const [placeholderIndex, setPlaceholderIndex] = useState(0)
   const [displayText, setDisplayText] = useState("")
   const [isTyping, setIsTyping] = useState(true)
+  const [showEnglishExplanation, setShowEnglishExplanation] = useState(false)
 
   const currentPlaceholder = placeholders[placeholderIndex]
 
@@ -128,6 +129,7 @@ export function HeroDemoInput() {
     try {
       const data = await analyzeText(message)
       setResult(data)
+      setShowEnglishExplanation(false)
     } catch {
       setError("Something went wrong. Please try again.")
     } finally {
@@ -137,6 +139,29 @@ export function HeroDemoInput() {
 
   const config = result ? statusConfig[result.classification] : null
   const StatusIcon = config?.icon
+
+  const hasLocalizedExplanation = !!(
+    result &&
+    result.detected_language &&
+    result.detected_language !== "en" &&
+    result.summary_localized &&
+    result.reasoning_localized
+  )
+
+  const displayedSummary =
+    hasLocalizedExplanation && !showEnglishExplanation
+      ? result?.summary_localized
+      : result?.summary
+
+  const displayedReasoning =
+    hasLocalizedExplanation && !showEnglishExplanation
+      ? result?.reasoning_localized
+      : result?.reasoning
+
+  const displayedReasons =
+    hasLocalizedExplanation && !showEnglishExplanation
+      ? (result?.reasons_localized ?? result?.reasons ?? [])
+      : (result?.reasons ?? [])
 
   return (
     <div id="demo" className="w-full scroll-mt-[30vh]">
@@ -236,13 +261,26 @@ export function HeroDemoInput() {
           </div>
 
           {/* Summary */}
-          {result.summary && (
-            <p className="mb-3 text-xs font-medium text-foreground/80">{result.summary}</p>
+          {displayedSummary && (
+            <p className="mb-3 text-xs font-medium text-foreground/80">{displayedSummary}</p>
+          )}
+
+          {/* Language toggle for explanation */}
+          {hasLocalizedExplanation && (
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() => setShowEnglishExplanation((v) => !v)}
+                className="rounded-full border border-border bg-muted/60 px-3 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {result?.detected_language_label ?? "Local"} ↔ English
+              </button>
+            </div>
           )}
 
           {/* Reasoning */}
-          {result.reasoning && (
-            <p className="mb-3 text-xs italic text-muted-foreground leading-relaxed">{result.reasoning}</p>
+          {displayedReasoning && (
+            <p className="mb-3 text-xs italic text-muted-foreground leading-relaxed">{displayedReasoning}</p>
           )}
 
           {/* Detected signals */}
@@ -266,7 +304,7 @@ export function HeroDemoInput() {
 
           {/* Reasons */}
           <ul className="flex flex-col gap-1.5">
-            {result.reasons.map((reason, i) => (
+            {displayedReasons.map((reason, i) => (
               <li key={i} className="flex items-start gap-2 text-xs text-foreground">
                 {result.classification === "Highly Likely Phishing" ? (
                   <AlertTriangle className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${config.textClass}`} />

@@ -19,6 +19,7 @@ import json
 import os
 import sys
 from urllib.parse import urlparse
+from typing import Optional
 
 import numpy as np
 import joblib
@@ -40,6 +41,11 @@ from url_feature_extractor import (
     URL_FEATURE_COLUMNS,
 )
 from explanation_engine import generate_explanation
+
+try:
+    from deep_translator import GoogleTranslator  # type: ignore
+except Exception:
+    GoogleTranslator = None
 
 
 # ──────────────────────────────────────────────
@@ -115,6 +121,23 @@ TRUSTED_DOMAINS = {
     "github.com",
     "microsoft.com",
     "sbi.co.in",
+}
+
+
+LANGUAGE_MAP = {
+    "en": "English",
+    "hi": "Hindi",
+    "ta": "Tamil",
+    "te": "Telugu",
+    "bn": "Bengali",
+    "mr": "Marathi",
+    "kn": "Kannada",
+    "ml": "Malayalam",
+    "gu": "Gujarati",
+    "pa": "Punjabi",
+    "or": "Odia",
+    "as": "Assamese",
+    "ur": "Urdu",
 }
 
 # Map our extracted feature names → Kaggle column positions
@@ -214,10 +237,53 @@ def _is_url_only_input(text: str, urls: list[str]) -> bool:
     return False
 
 
+def _detect_input_language(text: str) -> str:
+    """Lightweight script-based language detection for explanation localization."""
+    if any("\u0900" <= ch <= "\u097F" for ch in text):
+        return "hi"
+    if any("\u0B80" <= ch <= "\u0BFF" for ch in text):
+        return "ta"
+    if any("\u0C00" <= ch <= "\u0C7F" for ch in text):
+        return "te"
+    if any("\u0980" <= ch <= "\u09FF" for ch in text):
+        return "bn"
+    if any("\u0C80" <= ch <= "\u0CFF" for ch in text):
+        return "kn"
+    if any("\u0D00" <= ch <= "\u0D7F" for ch in text):
+        return "ml"
+    if any("\u0A80" <= ch <= "\u0AFF" for ch in text):
+        return "gu"
+    if any("\u0A00" <= ch <= "\u0A7F" for ch in text):
+        return "pa"
+    if any("\u0B00" <= ch <= "\u0B7F" for ch in text):
+        return "or"
+    if any("\u0980" <= ch <= "\u09FF" for ch in text):
+        return "as"
+    if any("\u0600" <= ch <= "\u06FF" for ch in text):
+        return "ur"
+    return "en"
+
+
+def _translate_text(text: str, target_lang: str) -> str:
+    """Translate English text to target language, with safe fallback."""
+    if target_lang == "en" or not text:
+        return text
+    if GoogleTranslator is None:
+        return text
+    try:
+        return GoogleTranslator(source="en", target=target_lang).translate(text)
+    except Exception:
+        return text
+
+
+def _translate_list(items: list[str], target_lang: str) -> list[str]:
+    return [_translate_text(i, target_lang) for i in items]
+
+
 # ──────────────────────────────────────────────
 # 3. PREDICTION FUNCTION
 # ──────────────────────────────────────────────
-def predict(text: str) -> dict:
+def predict(text: str, language_hint: Optional[str] = None) -> dict:
     """Run dual-model phishing prediction on a single text.
 
     Parameters
@@ -312,6 +378,21 @@ def predict(text: str) -> dict:
         url_triggered=all_url_triggers,
         trusted_url_present=trusted_url_present,
     )
+
+    detected_lang = (language_hint or _detect_input_language(text)).lower()
+    if detected_lang not in LANGUAGE_MAP:
+        detected_lang = _detect_input_language(text)
+    detected_lang_label = LANGUAGE_MAP.get(detected_lang, "English")
+
+    summary_localized = _translate_text(result.get("summary", ""), detected_lang)
+    reasoning_localized = _translate_text(result.get("reasoning", ""), detected_lang)
+    reasons_localized = _translate_list(result.get("reasons", []), detected_lang)
+
+    result["detected_language"] = detected_lang
+    result["detected_language_label"] = detected_lang_label
+    result["summary_localized"] = summary_localized
+    result["reasoning_localized"] = reasoning_localized
+    result["reasons_localized"] = reasons_localized
 
     # Attach model accuracy
     result["model_accuracy"] = MODEL_METRICS.get("accuracy")

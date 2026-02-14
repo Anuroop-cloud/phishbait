@@ -23,6 +23,7 @@ app.add_middleware(
 
 class PredictRequest(BaseModel):
     text: str
+    language_hint: str | None = None
 
 
 @app.get("/")
@@ -33,7 +34,7 @@ def root():
 @app.post("/predict")
 def predict_endpoint(req: PredictRequest):
     """Run phishing detection on the submitted text."""
-    result = predict(req.text)
+    result = predict(req.text, language_hint=req.language_hint)
     return result
 
 
