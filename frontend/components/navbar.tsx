@@ -4,9 +4,9 @@ import { useState } from "react"
 import { Shield, Menu, X } from "lucide-react"
 
 const navLinks = [
-  { label: "How It Works", href: "/languages#how-it-works" },
+  { label: "Home", href: "/" },
+  { label: "How It Works", href: "/how-it-works#how-it-works" },
   { label: "Languages", href: "/languages#languages" },
-  { label: "Why SurakshaAI", href: "/#why" },
   { label: "Community", href: "/#community" },
 ]
 
@@ -17,11 +17,11 @@ export function Navbar() {
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 lg:px-8">
         {/* Logo */}
-        <a href="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+        <a href="/" className="group flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary transition-all duration-200 group-hover:animate-pop-dramatic group-hover:shadow-[0_0_24px_rgba(16,185,129,0.45)]">
             <Shield className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold text-foreground">
+          <span className="text-xl font-bold text-foreground transition-all duration-200 group-hover:animate-pop-dramatic">
             Suraksha<span className="text-primary">AI</span>
           </span>
         </a>
@@ -32,7 +32,7 @@ export function Navbar() {
             <li key={link.href}>
               <a
                 href={link.href}
-                className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className="inline-flex items-center rounded-lg px-2 py-1 text-sm font-medium text-muted-foreground transition-all duration-200 hover:animate-pop-dramatic hover:text-foreground hover:shadow-[0_0_24px_rgba(16,185,129,0.35)] active:scale-95"
               >
                 {link.label}
               </a>
@@ -58,7 +58,7 @@ export function Navbar() {
               <li key={link.href}>
                 <a
                   href={link.href}
-                  className="block rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="block rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:animate-pop-dramatic hover:bg-muted hover:text-foreground hover:shadow-[0_0_24px_rgba(16,185,129,0.28)] active:scale-95"
                   onClick={() => setMobileOpen(false)}
                 >
                   {link.label}

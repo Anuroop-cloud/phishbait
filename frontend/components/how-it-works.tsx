@@ -23,7 +23,7 @@ const steps = [
     title: "Hybrid AI Classification",
     description:
       "Combines semantic embeddings with handcrafted phishing features using an ensemble classifier for explainable, accurate results.",
-    highlights: ["Semantic embeddings", "Ensemble classifier", "85-90% accuracy"],
+    highlights: ["Semantic embeddings", "Ensemble classifier", "80-90+% accuracy"],
     color: "bg-accent/20 text-accent",
   },
 ]

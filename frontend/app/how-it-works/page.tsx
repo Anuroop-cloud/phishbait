@@ -1,12 +1,12 @@
 import { Navbar } from "@/components/navbar"
-import { MultilingualSection } from "@/components/multilingual-section"
+import { HowItWorks } from "@/components/how-it-works"
 import { Footer } from "@/components/footer"
 
-export default function LanguagesPage() {
+export default function HowItWorksPage() {
   return (
     <main>
       <Navbar />
-      <MultilingualSection />
+      <HowItWorks />
       <Footer />
     </main>
   )

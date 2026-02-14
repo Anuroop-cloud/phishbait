@@ -1,9 +1,9 @@
 import { Shield, Github, Linkedin } from "lucide-react"
 
 const quickLinks = [
-  { label: "How It Works", href: "/languages#how-it-works" },
+  { label: "How It Works", href: "/how-it-works#how-it-works" },
   { label: "Languages", href: "/languages#languages" },
-  { label: "Why SurakshaAI", href: "/#why" },
+  { label: "Home", href: "/" },
 ]
 
 export function Footer() {
