@@ -4,10 +4,10 @@ import { useState } from "react"
 import { Shield, Menu, X } from "lucide-react"
 
 const navLinks = [
-  { label: "How It Works", href: "#how-it-works" },
-  { label: "Languages", href: "#languages" },
-  { label: "Why SurakshaAI", href: "#why" },
-  { label: "Community", href: "#community" },
+  { label: "How It Works", href: "/languages#how-it-works" },
+  { label: "Languages", href: "/languages#languages" },
+  { label: "Why SurakshaAI", href: "/#why" },
+  { label: "Community", href: "/#community" },
 ]
 
 export function Navbar() {
@@ -17,7 +17,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 lg:px-8">
         {/* Logo */}
-        <a href="#" className="flex items-center gap-2">
+        <a href="/" className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
             <Shield className="h-5 w-5 text-primary-foreground" />
           </div>

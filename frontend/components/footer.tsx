@@ -1,9 +1,9 @@
 import { Shield, Github, Linkedin } from "lucide-react"
 
 const quickLinks = [
-  { label: "How It Works", href: "#how-it-works" },
-  { label: "Languages", href: "#languages" },
-  { label: "Why SurakshaAI", href: "#why" },
+  { label: "How It Works", href: "/languages#how-it-works" },
+  { label: "Languages", href: "/languages#languages" },
+  { label: "Why SurakshaAI", href: "/#why" },
 ]
 
 export function Footer() {
@@ -13,7 +13,7 @@ export function Footer() {
         <div className="grid gap-10 md:grid-cols-2">
           {/* Brand */}
           <div>
-            <a href="#" className="mb-4 flex items-center gap-2">
+            <a href="/" className="mb-4 flex items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
                 <Shield className="h-5 w-5 text-primary-foreground" />
               </div>

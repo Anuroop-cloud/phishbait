@@ -36,7 +36,7 @@ export function HeroSection() {
               </a>
             </Button>
             <Button asChild size="lg" variant="outline" className="border-border text-foreground hover:bg-muted">
-              <a href="#how-it-works">How It Works</a>
+              <a href="/languages#how-it-works">How It Works</a>
             </Button>
           </div>
         </div>
