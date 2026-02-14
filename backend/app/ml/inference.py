@@ -267,10 +267,14 @@ def predict(text: str) -> dict:
 
     if urls and url_model is not None:
         url_probs = []
+        trusted_url_present = False
         for u in urls:
             feats = extract_url_features(u)
             triggers = get_triggered_features(feats)
             all_url_triggers.extend(triggers)
+
+            if _is_trusted_domain(u) and not triggers:
+                trusted_url_present = True
 
             vec = _url_features_to_kaggle_vector(feats).reshape(1, -1)
             vec = np.nan_to_num(vec, nan=0.0, posinf=0.0, neginf=0.0)
@@ -295,6 +299,8 @@ def predict(text: str) -> dict:
 
         # Deduplicate triggers
         all_url_triggers = list(dict.fromkeys(all_url_triggers))
+    else:
+        trusted_url_present = False
 
     # ── C. Explanation engine ────────────────
     result = generate_explanation(
@@ -304,6 +310,7 @@ def predict(text: str) -> dict:
         url_probability=url_probability,
         url_prediction=url_prediction,
         url_triggered=all_url_triggers,
+        trusted_url_present=trusted_url_present,
     )
 
     # Attach model accuracy

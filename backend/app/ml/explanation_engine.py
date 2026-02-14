@@ -152,8 +152,8 @@ def _detect_signals(text: str, has_urls: bool) -> tuple[list[str], list[str]]:
 
     # 3. OTP / sensitive info -- context-aware
     otp_mentioned = bool(re.search(r"\botp\b|ओटीपी", lower))
-    is_otp_request = any(re.search(p, lower) for p in SENSITIVE_REQUEST_PATTERNS)
     is_otp_legit = any(re.search(p, lower) for p in OTP_LEGIT_PATTERNS)
+    is_otp_request = any(re.search(p, lower) for p in SENSITIVE_REQUEST_PATTERNS) and not is_otp_legit
 
     if is_otp_request:
         signals.append("otp_request")
@@ -246,6 +246,7 @@ def generate_explanation(
     url_probability: float | None,
     url_prediction: str | None,     # "Phishing" | "Safe" | None
     url_triggered: list[str],       # from get_triggered_features()
+    trusted_url_present: bool = False,
     text_features: dict | None = None,
 ) -> dict:
     """Build a structured explanation from both model outputs.
@@ -270,6 +271,15 @@ def generate_explanation(
 
     # ---- Context-aware legitimacy check ----
     is_likely_legit_otp = "otp_informational" in detected_signals
+
+    # Legitimate account-service pattern: reset/help message that points only
+    # to a trusted URL and has no structural URL red flags.
+    lower_text = user_text.lower()
+    legit_account_action = bool(
+        re.search(r"\b(reset|recover|change|update)\b", lower_text)
+        and re.search(r"\b(password|account)\b", lower_text)
+    )
+    trusted_url_context = trusted_url_present and not url_triggered
 
     # ---- Combine model probabilities ----
     # Only count red-flag signals (not informational/neutral ones)
@@ -299,6 +309,8 @@ def generate_explanation(
 
     # Legitimacy dampener for genuine OTP messages
     legit_dampener = 0.35 if is_likely_legit_otp else 0.0
+    if legit_account_action and trusted_url_context:
+        legit_dampener += 0.45
 
     if has_url_model:
         base = max(text_probability, url_probability)
@@ -323,9 +335,12 @@ def generate_explanation(
     # ---- Determine classification ----
     no_red_flags = not red_flag_signals and not url_triggered
 
-    if is_likely_legit_otp and combined_prob < 0.6:
+    if (is_likely_legit_otp or (legit_account_action and trusted_url_context)) and combined_prob < 0.6:
         classification = "Legitimate"
-        summary = "This appears to be a legitimate OTP/notification message."
+        if is_likely_legit_otp:
+            summary = "This appears to be a legitimate OTP/notification message."
+        else:
+            summary = "This appears to be a legitimate account-service message."
     elif no_red_flags and combined_prob < 0.6:
         classification = "Legitimate"
         summary = "No strong phishing indicators were detected in this message."
