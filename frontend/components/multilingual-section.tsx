@@ -1,12 +1,29 @@
 import { Globe } from "lucide-react"
 
 const languages = [
+  { name: "Assamese", script: "অসমীয়া", supported: true },
+  { name: "Bengali", script: "বাংলা", supported: true },
+  { name: "Bodo", script: "बड़ो", supported: true },
+  { name: "Dogri", script: "डोगरी", supported: true },
+  { name: "English", script: "English", supported: true },
+  { name: "Gujarati", script: "ગુજરાતી", supported: true },
   { name: "Hindi", script: "हिन्दी", supported: true },
+  { name: "Kannada", script: "ಕನ್ನಡ", supported: true },
+  { name: "Kashmiri", script: "कॉशुर", supported: true },
+  { name: "Konkani", script: "कोंकणी", supported: true },
+  { name: "Maithili", script: "मैथिली", supported: true },
+  { name: "Malayalam", script: "മലയാളം", supported: true },
+  { name: "Manipuri", script: "মৈতৈলোন", supported: true },
+  { name: "Marathi", script: "मराठी", supported: true },
+  { name: "Nepali", script: "नेपाली", supported: true },
+  { name: "Odia", script: "ଓଡ଼ିଆ", supported: true },
+  { name: "Punjabi", script: "ਪੰਜਾਬੀ", supported: true },
+  { name: "Sanskrit", script: "संस्कृतम्", supported: true },
+  { name: "Santali", script: "ᱥᱟᱱᱛᱟᱲᱤ", supported: true },
+  { name: "Sindhi", script: "सिन्धी", supported: true },
   { name: "Tamil", script: "தமிழ்", supported: true },
   { name: "Telugu", script: "తెలుగు", supported: true },
-  { name: "Bengali", script: "বাংলা", supported: false },
-  { name: "Marathi", script: "मराठी", supported: false },
-  { name: "Kannada", script: "ಕನ್ನಡ", supported: false },
+  { name: "Urdu", script: "اردو", supported: true },
 ]
 
 export function MultilingualSection() {
@@ -21,11 +38,11 @@ export function MultilingualSection() {
             Built for India&apos;s Linguistic Diversity
           </h2>
           <p className="text-pretty text-lg text-muted-foreground">
-            Our AI understands the nuance, slang, and context of India&apos;s most spoken languages.
+            SurakshaAI is powered by IndicBERT with broad multilingual coverage across Indian languages.
           </p>
         </div>
 
-        <div className="mx-auto grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-3">
+        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {languages.map((lang) => (
             <div
               key={lang.name}
@@ -44,15 +61,9 @@ export function MultilingualSection() {
               </div>
               <p className="mb-1 text-2xl font-bold text-foreground">{lang.script}</p>
               <p className="text-sm font-medium text-muted-foreground">{lang.name}</p>
-              {lang.supported ? (
-                <span className="mt-2 rounded-full bg-accent/10 px-3 py-0.5 text-xs font-medium text-accent">
-                  Supported
-                </span>
-              ) : (
-                <span className="mt-2 rounded-full bg-muted-foreground/10 px-3 py-0.5 text-xs font-medium text-muted-foreground">
-                  Coming Soon
-                </span>
-              )}
+              <span className="mt-2 rounded-full bg-accent/10 px-3 py-0.5 text-xs font-medium text-accent">
+                Supported
+              </span>
             </div>
           ))}
         </div>
